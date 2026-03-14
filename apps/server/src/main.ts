@@ -37,6 +37,7 @@ interface CliInput {
   readonly port: Option.Option<number>;
   readonly host: Option.Option<string>;
   readonly stateDir: Option.Option<string>;
+  readonly agentStateDbPath: Option.Option<string>;
   readonly devUrl: Option.Option<URL>;
   readonly noBrowser: Option.Option<boolean>;
   readonly authToken: Option.Option<string>;
@@ -100,6 +101,10 @@ const CliEnvConfig = Config.all({
   port: Config.port("T3CODE_PORT").pipe(Config.option, Config.map(Option.getOrUndefined)),
   host: Config.string("T3CODE_HOST").pipe(Config.option, Config.map(Option.getOrUndefined)),
   stateDir: Config.string("T3CODE_STATE_DIR").pipe(
+    Config.option,
+    Config.map(Option.getOrUndefined),
+  ),
+  agentStateDbPath: Config.string("T3CODE_AGENT_STATE_DB_PATH").pipe(
     Config.option,
     Config.map(Option.getOrUndefined),
   ),
@@ -167,8 +172,23 @@ const ServerConfigLive = (input: CliInput) =>
         env.logWebSocketEvents ?? Boolean(devUrl),
       );
       const staticDir = devUrl ? undefined : yield* cliConfig.resolveStaticDir;
-      const { join } = yield* Path.Path;
+      const path = yield* Path.Path;
+      const { join } = path;
       const keybindingsConfigPath = join(stateDir, "keybindings.json");
+      const configuredAgentStateDbPath =
+        Option.getOrUndefined(input.agentStateDbPath) ?? env.agentStateDbPath;
+      const defaultAgentStateDbPath = join(stateDir, "agent-state.db");
+      const legacyAgentStateDbPath = join(stateDir, "state.sqlite");
+      const fileSystem = yield* FileSystem.FileSystem;
+      const agentStateDbPath = configuredAgentStateDbPath
+        ? path.resolve(configuredAgentStateDbPath)
+        : yield* fileSystem
+            .exists(legacyAgentStateDbPath)
+            .pipe(
+              Effect.map((legacyExists) =>
+                legacyExists ? legacyAgentStateDbPath : defaultAgentStateDbPath,
+              ),
+            );
       const host =
         Option.getOrUndefined(input.host) ??
         env.host ??
@@ -181,6 +201,7 @@ const ServerConfigLive = (input: CliInput) =>
         keybindingsConfigPath,
         host,
         stateDir,
+        agentStateDbPath,
         staticDir,
         devUrl,
         noBrowser,
@@ -303,6 +324,12 @@ const stateDirFlag = Flag.string("state-dir").pipe(
   Flag.withDescription("State directory path (equivalent to T3CODE_STATE_DIR)."),
   Flag.optional,
 );
+const agentStateDbPathFlag = Flag.string("agent-state-db-path").pipe(
+  Flag.withDescription(
+    "SQLite database path for agent state (equivalent to T3CODE_AGENT_STATE_DB_PATH).",
+  ),
+  Flag.optional,
+);
 const devUrlFlag = Flag.string("dev-url").pipe(
   Flag.withSchema(Schema.URLFromString),
   Flag.withDescription("Dev web URL to proxy/redirect to (equivalent to VITE_DEV_SERVER_URL)."),
@@ -336,6 +363,7 @@ export const t3Cli = Command.make("t3", {
   port: portFlag,
   host: hostFlag,
   stateDir: stateDirFlag,
+  agentStateDbPath: agentStateDbPathFlag,
   devUrl: devUrlFlag,
   noBrowser: noBrowserFlag,
   authToken: authTokenFlag,

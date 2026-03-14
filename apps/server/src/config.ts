@@ -22,6 +22,7 @@ export interface ServerConfigShape {
   readonly cwd: string;
   readonly keybindingsConfigPath: string;
   readonly stateDir: string;
+  readonly agentStateDbPath: string;
   readonly staticDir: string | undefined;
   readonly devUrl: URL | undefined;
   readonly noBrowser: boolean;
@@ -44,6 +45,7 @@ export class ServerConfig extends ServiceMap.Service<ServerConfig, ServerConfigS
         return {
           cwd,
           stateDir: statedir,
+          agentStateDbPath: path.join(statedir, "agent-state.db"),
           mode: "web",
           autoBootstrapProjectFromCwd: false,
           logWebSocketEvents: false,

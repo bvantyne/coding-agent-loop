@@ -90,6 +90,19 @@ export class ProviderSessionRepositoryPersistenceError extends Schema.TaggedErro
   }
 }
 
+export class FileLockConflictError extends Schema.TaggedErrorClass<FileLockConflictError>()(
+  "FileLockConflictError",
+  {
+    filePath: Schema.String,
+    lockType: Schema.String,
+    detail: Schema.String,
+  },
+) {
+  override get message(): string {
+    return `File lock conflict for ${this.filePath}: ${this.detail}`;
+  }
+}
+
 export type OrchestrationEventStoreError = PersistenceSqlError | PersistenceDecodeError;
 
 export type ProviderSessionRepositoryError =
@@ -103,3 +116,14 @@ export type OrchestrationCommandReceiptRepositoryError =
 export type ProviderSessionRuntimeRepositoryError = PersistenceSqlError | PersistenceDecodeError;
 
 export type ProjectionRepositoryError = PersistenceSqlError | PersistenceDecodeError;
+
+export type IssueQueueRepositoryError = PersistenceSqlError | PersistenceDecodeError;
+
+export type AgentSessionRepositoryError = PersistenceSqlError | PersistenceDecodeError;
+
+export type FileLockRepositoryError =
+  | PersistenceSqlError
+  | PersistenceDecodeError
+  | FileLockConflictError;
+
+export type PlanArtifactRepositoryError = PersistenceSqlError | PersistenceDecodeError;

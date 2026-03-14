@@ -7,6 +7,7 @@ import * as SqlClient from "effect/unstable/sql/SqlClient";
 import { CheckpointDiffQueryLive } from "./checkpointing/Layers/CheckpointDiffQuery";
 import { CheckpointStoreLive } from "./checkpointing/Layers/CheckpointStore";
 import { ServerConfig } from "./config";
+import { AgentStateRepositoriesLive } from "./persistence/Layers/AgentState";
 import { OrchestrationCommandReceiptRepositoryLive } from "./persistence/Layers/OrchestrationCommandReceipts";
 import { OrchestrationEventStoreLive } from "./persistence/Layers/OrchestrationEventStore";
 import { ProviderSessionRuntimeRepositoryLive } from "./persistence/Layers/ProviderSessionRuntime";
@@ -122,6 +123,7 @@ export function makeServerRuntimeServicesLayer() {
   );
 
   return Layer.mergeAll(
+    AgentStateRepositoriesLive,
     orchestrationReactorLayer,
     gitCoreLayer,
     gitManagerLayer,
