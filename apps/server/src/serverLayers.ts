@@ -69,6 +69,13 @@ export function makeServerProviderLayer(): Layer.Layer<
   }).pipe(Layer.unwrap);
 }
 
+/**
+ * Builds and composes the server runtime services layer used by the application.
+ *
+ * This Layer wires together orchestration (engine, projection pipeline, event store, command receipt repository), runtime ingestion, checkpointing and snapshot queries, reactors (provider command, checkpoint, orchestration), Git core and manager, text generation, terminal management (Bun or Node pty adapter), keybindings, and agent state repositories, then provides Node services on top.
+ *
+ * @returns A Layer that provides orchestration, reactors, checkpointing, runtime ingestion, Git (core and manager), text generation, terminal, keybindings, agent state repositories, and Node services
+ */
 export function makeServerRuntimeServicesLayer() {
   const gitCoreLayer = GitCoreLive.pipe(Layer.provideMerge(GitServiceLive));
   const textGenerationLayer = CodexTextGenerationLive;
