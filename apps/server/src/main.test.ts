@@ -212,17 +212,21 @@ it.layer(testLayer)("server CLI command", (it) => {
           .toString(36)
           .slice(2, 10)}`;
         fs.mkdirSync(stateDir, { recursive: true });
-        fs.writeFileSync(path.join(stateDir, "state.sqlite"), "");
+        try {
+          fs.writeFileSync(path.join(stateDir, "state.sqlite"), "");
 
-        yield* runCli(["--state-dir", stateDir], {
-          T3CODE_NO_BROWSER: "true",
-        });
+          yield* runCli(["--state-dir", stateDir], {
+            T3CODE_NO_BROWSER: "true",
+          });
 
-        assert.equal(resolvedConfig?.stateDir, path.resolve(stateDir));
-        assert.equal(
-          resolvedConfig?.agentStateDbPath,
-          path.resolve(path.join(stateDir, "state.sqlite")),
-        );
+          assert.equal(resolvedConfig?.stateDir, path.resolve(stateDir));
+          assert.equal(
+            resolvedConfig?.agentStateDbPath,
+            path.resolve(path.join(stateDir, "state.sqlite")),
+          );
+        } finally {
+          fs.rmSync(stateDir, { recursive: true, force: true });
+        }
       }),
   );
 
@@ -234,18 +238,22 @@ it.layer(testLayer)("server CLI command", (it) => {
           .toString(36)
           .slice(2, 10)}`;
         fs.mkdirSync(stateDir, { recursive: true });
-        fs.writeFileSync(path.join(stateDir, "agent-state.db"), "");
-        fs.writeFileSync(path.join(stateDir, "state.sqlite"), "");
+        try {
+          fs.writeFileSync(path.join(stateDir, "agent-state.db"), "");
+          fs.writeFileSync(path.join(stateDir, "state.sqlite"), "");
 
-        yield* runCli(["--state-dir", stateDir], {
-          T3CODE_NO_BROWSER: "true",
-        });
+          yield* runCli(["--state-dir", stateDir], {
+            T3CODE_NO_BROWSER: "true",
+          });
 
-        assert.equal(resolvedConfig?.stateDir, path.resolve(stateDir));
-        assert.equal(
-          resolvedConfig?.agentStateDbPath,
-          path.resolve(path.join(stateDir, "agent-state.db")),
-        );
+          assert.equal(resolvedConfig?.stateDir, path.resolve(stateDir));
+          assert.equal(
+            resolvedConfig?.agentStateDbPath,
+            path.resolve(path.join(stateDir, "agent-state.db")),
+          );
+        } finally {
+          fs.rmSync(stateDir, { recursive: true, force: true });
+        }
       }),
   );
 

@@ -188,9 +188,12 @@ const makeFileLockRepository = Effect.gen(function* () {
     );
 
   const listByIssueId: FileLockRepositoryShape["listByIssueId"] = (input) =>
-    listActiveFileLocksByIssueId({
-      issueId: input.issueId,
-      asOf: new Date().toISOString(),
+    Effect.gen(function* () {
+      const { asOf } = yield* getDatabaseAsOfRow(undefined);
+      return yield* listActiveFileLocksByIssueId({
+        issueId: input.issueId,
+        asOf,
+      });
     }).pipe(
       Effect.mapError(
         toPersistenceSqlOrDecodeError(

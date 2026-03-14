@@ -1,4 +1,4 @@
-import { Effect, Layer, Option, Schema, Struct } from "effect";
+import { Effect, Layer, Schema, Struct } from "effect";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 import * as SqlSchema from "effect/unstable/sql/SqlSchema";
 
@@ -158,12 +158,6 @@ const makePlanArtifactRepository = Effect.gen(function* () {
           "PlanArtifactRepository.getById:decodeRow",
         ),
       ),
-      Effect.flatMap((row) =>
-        Option.match(row, {
-          onNone: () => Effect.succeed(Option.none()),
-          onSome: (artifact) => Effect.succeed(Option.some(artifact)),
-        }),
-      ),
     );
 
   const getLatestByIssueId: PlanArtifactRepositoryShape["getLatestByIssueId"] = (input) =>
@@ -173,12 +167,6 @@ const makePlanArtifactRepository = Effect.gen(function* () {
           "PlanArtifactRepository.getLatestByIssueId:query",
           "PlanArtifactRepository.getLatestByIssueId:decodeRow",
         ),
-      ),
-      Effect.flatMap((row) =>
-        Option.match(row, {
-          onNone: () => Effect.succeed(Option.none()),
-          onSome: (artifact) => Effect.succeed(Option.some(artifact)),
-        }),
       ),
     );
 

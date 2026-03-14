@@ -63,11 +63,11 @@ export const make = (
 
       const run = (sql: string, params: ReadonlyArray<unknown> = []) =>
         Effect.withFiber<Array<any>, SqlError>((fiber) => {
-          const statement = db.query(sql);
-          const useSafeIntegers = ServiceMap.get(fiber.services, Client.SafeIntegers);
-          // @ts-expect-error bun types are missing safeIntegers()
-          statement.safeIntegers(useSafeIntegers);
           try {
+            const statement = db.query(sql);
+            const useSafeIntegers = ServiceMap.get(fiber.services, Client.SafeIntegers);
+            // @ts-expect-error bun types are missing safeIntegers()
+            statement.safeIntegers(useSafeIntegers);
             return Effect.succeed((statement.all(...(params as any)) ?? []) as Array<any>);
           } catch (cause) {
             return Effect.fail(new SqlError({ cause, message: "Failed to execute statement" }));
@@ -76,11 +76,11 @@ export const make = (
 
       const runValues = (sql: string, params: ReadonlyArray<unknown> = []) =>
         Effect.withFiber<Array<any>, SqlError>((fiber) => {
-          const statement = db.query(sql);
-          const useSafeIntegers = ServiceMap.get(fiber.services, Client.SafeIntegers);
-          // @ts-expect-error bun types are missing safeIntegers()
-          statement.safeIntegers(useSafeIntegers);
           try {
+            const statement = db.query(sql);
+            const useSafeIntegers = ServiceMap.get(fiber.services, Client.SafeIntegers);
+            // @ts-expect-error bun types are missing safeIntegers()
+            statement.safeIntegers(useSafeIntegers);
             return Effect.succeed((statement.values(...(params as any)) ?? []) as Array<any>);
           } catch (cause) {
             return Effect.fail(new SqlError({ cause, message: "Failed to execute statement" }));
