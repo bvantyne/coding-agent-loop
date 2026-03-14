@@ -6,13 +6,14 @@ import { ServerConfig } from "../../config.ts";
 
 type RuntimeSqliteLayerConfig = {
   readonly filename: string;
+  readonly beginTransaction?: string;
 };
 
 type Loader = {
   layer: (config: RuntimeSqliteLayerConfig) => Layer.Layer<SqlClient.SqlClient>;
 };
 const defaultSqliteClientLoaders = {
-  bun: () => import("@effect/sql-sqlite-bun/SqliteClient"),
+  bun: () => import("../BunSqliteClient.ts"),
   node: () => import("../NodeSqliteClient.ts"),
 } satisfies Record<string, () => Promise<Loader>>;
 
@@ -35,13 +36,16 @@ const setup = Layer.effectDiscard(
   }),
 );
 
-export const makeSqlitePersistenceLive = (dbPath: string) =>
+export const makeSqlitePersistenceLive = (
+  dbPath: string,
+  options?: Omit<RuntimeSqliteLayerConfig, "filename">,
+) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     yield* fs.makeDirectory(path.dirname(dbPath), { recursive: true });
 
-    return Layer.provideMerge(setup, makeRuntimeSqliteLayer({ filename: dbPath }));
+    return Layer.provideMerge(setup, makeRuntimeSqliteLayer({ filename: dbPath, ...options }));
   }).pipe(Layer.unwrap);
 
 export const SqlitePersistenceMemory = Layer.provideMerge(
@@ -49,7 +53,21 @@ export const SqlitePersistenceMemory = Layer.provideMerge(
   makeRuntimeSqliteLayer({ filename: ":memory:" }),
 );
 
+export const AgentStateSqlitePersistenceMemory = Layer.provideMerge(
+  setup,
+  makeRuntimeSqliteLayer({ filename: ":memory:", beginTransaction: "BEGIN IMMEDIATE" }),
+);
+
 export const layerConfig = Effect.gen(function* () {
+  const { stateDir } = yield* ServerConfig;
+  const { join } = yield* Path.Path;
+  const dbPath = join(stateDir, "state.sqlite");
+  return makeSqlitePersistenceLive(dbPath);
+}).pipe(Layer.unwrap);
+
+export const agentStateLayerConfig = Effect.gen(function* () {
   const { agentStateDbPath } = yield* ServerConfig;
-  return makeSqlitePersistenceLive(agentStateDbPath);
+  return makeSqlitePersistenceLive(agentStateDbPath, {
+    beginTransaction: "BEGIN IMMEDIATE",
+  });
 }).pipe(Layer.unwrap);

@@ -3,7 +3,7 @@ import { Effect, Layer, Schema } from "effect";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 import * as SqlSchema from "effect/unstable/sql/SqlSchema";
 
-import { FileLockConflictError, toPersistenceSqlError } from "../Errors.ts";
+import { FileLockConflictError, FileLockExpiredError, toPersistenceSqlError } from "../Errors.ts";
 import { toPersistenceSqlOrDecodeError } from "../repositoryHelpers.ts";
 import {
   FileLockEntry,
@@ -28,6 +28,10 @@ const ActiveFileLocksByFileInput = Schema.Struct({
 
 const ActiveFileLocksByIssueAtInput = Schema.Struct({
   issueId: IssueQueueId,
+  asOf: IsoDateTime,
+});
+
+const DatabaseAsOfRow = Schema.Struct({
   asOf: IsoDateTime,
 });
 
@@ -123,18 +127,35 @@ const makeFileLockRepository = Effect.gen(function* () {
     `,
   });
 
+  const getDatabaseAsOfRow = SqlSchema.findOne({
+    Request: Schema.Void,
+    Result: DatabaseAsOfRow,
+    execute: () => sql`
+      SELECT STRFTIME('%Y-%m-%dT%H:%M:%fZ', 'now') AS "asOf"
+    `,
+  });
+
   const acquire: FileLockRepositoryShape["acquire"] = (lock) =>
     sql
       .withTransaction(
         Effect.gen(function* () {
+          const { asOf } = yield* getDatabaseAsOfRow(undefined);
+          if (Date.parse(lock.expiresAt) <= Date.parse(asOf)) {
+            return yield* new FileLockExpiredError({
+              filePath: lock.filePath,
+              expiresAt: lock.expiresAt,
+              asOf,
+            });
+          }
+
           yield* purgeExpiredFileLocksForPath({
             filePath: lock.filePath,
-            asOf: lock.lockedAt,
+            asOf,
           });
 
           const locks = yield* listActiveFileLocksByFilePath({
             filePath: lock.filePath,
-            asOf: lock.lockedAt,
+            asOf,
           });
 
           const conflicts = findConflicts(locks, lock);
@@ -152,7 +173,7 @@ const makeFileLockRepository = Effect.gen(function* () {
       )
       .pipe(
         Effect.mapError((cause) =>
-          Schema.is(FileLockConflictError)(cause)
+          Schema.is(FileLockConflictError)(cause) || Schema.is(FileLockExpiredError)(cause)
             ? cause
             : toPersistenceSqlOrDecodeError(
                 "FileLockRepository.acquire:query",
@@ -180,27 +201,28 @@ const makeFileLockRepository = Effect.gen(function* () {
     );
 
   const checkAvailability: FileLockRepositoryShape["checkAvailability"] = (input) => {
-    const asOf = input.asOf ?? new Date().toISOString();
     return sql
       .withTransaction(
-        purgeExpiredFileLocksForPath({
-          filePath: input.filePath,
-          asOf,
-        }).pipe(
-          Effect.flatMap(() =>
-            listActiveFileLocksByFilePath({
-              filePath: input.filePath,
-              asOf,
-            }),
-          ),
-          Effect.map((locks) =>
+        Effect.gen(function* () {
+          const asOf = input.asOf ?? (yield* getDatabaseAsOfRow(undefined)).asOf;
+          yield* purgeExpiredFileLocksForPath({
+            filePath: input.filePath,
+            asOf,
+          });
+
+          const locks = yield* listActiveFileLocksByFilePath({
+            filePath: input.filePath,
+            asOf,
+          });
+
+          return yield* Effect.succeed(
             locks.every(
               (existing) =>
                 existing.lockedByAgent === input.lockedByAgent ||
                 (input.lockType === "shared" && existing.lockType === "shared"),
             ),
-          ),
-        ),
+          );
+        }),
       )
       .pipe(
         Effect.mapError(

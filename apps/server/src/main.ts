@@ -183,10 +183,18 @@ const ServerConfigLive = (input: CliInput) =>
       const agentStateDbPath = configuredAgentStateDbPath
         ? path.resolve(configuredAgentStateDbPath)
         : yield* fileSystem
-            .exists(legacyAgentStateDbPath)
+            .exists(defaultAgentStateDbPath)
             .pipe(
-              Effect.map((legacyExists) =>
-                legacyExists ? legacyAgentStateDbPath : defaultAgentStateDbPath,
+              Effect.flatMap((defaultExists) =>
+                defaultExists
+                  ? Effect.succeed(defaultAgentStateDbPath)
+                  : fileSystem
+                      .exists(legacyAgentStateDbPath)
+                      .pipe(
+                        Effect.map((legacyExists) =>
+                          legacyExists ? legacyAgentStateDbPath : defaultAgentStateDbPath,
+                        ),
+                      ),
               ),
             );
       const host =

@@ -217,6 +217,26 @@ it.layer(testLayer)("server CLI command", (it) => {
       }),
   );
 
+  it.effect(
+    "prefers the default agent-state filename over the legacy sqlite filename when both exist",
+    () =>
+      Effect.gen(function* () {
+        const stateDir = `/tmp/t3-cli-agent-state-default-${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2, 10)}`;
+        fs.mkdirSync(stateDir, { recursive: true });
+        fs.writeFileSync(path.join(stateDir, "agent-state.db"), "");
+        fs.writeFileSync(path.join(stateDir, "state.sqlite"), "");
+
+        yield* runCli(["--state-dir", stateDir], {
+          T3CODE_NO_BROWSER: "true",
+        });
+
+        assert.equal(resolvedConfig?.stateDir, stateDir);
+        assert.equal(resolvedConfig?.agentStateDbPath, path.join(stateDir, "agent-state.db"));
+      }),
+  );
+
   it.effect("uses fixed localhost defaults in desktop mode", () =>
     Effect.gen(function* () {
       yield* runCli([], {

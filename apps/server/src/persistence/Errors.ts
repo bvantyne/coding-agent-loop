@@ -103,6 +103,19 @@ export class FileLockConflictError extends Schema.TaggedErrorClass<FileLockConfl
   }
 }
 
+export class FileLockExpiredError extends Schema.TaggedErrorClass<FileLockExpiredError>()(
+  "FileLockExpiredError",
+  {
+    filePath: Schema.String,
+    expiresAt: Schema.String,
+    asOf: Schema.String,
+  },
+) {
+  override get message(): string {
+    return `File lock for ${this.filePath} expires at ${this.expiresAt}, which is not after ${this.asOf}`;
+  }
+}
+
 export type OrchestrationEventStoreError = PersistenceSqlError | PersistenceDecodeError;
 
 export type ProviderSessionRepositoryError =
@@ -124,6 +137,7 @@ export type AgentSessionRepositoryError = PersistenceSqlError | PersistenceDecod
 export type FileLockRepositoryError =
   | PersistenceSqlError
   | PersistenceDecodeError
-  | FileLockConflictError;
+  | FileLockConflictError
+  | FileLockExpiredError;
 
 export type PlanArtifactRepositoryError = PersistenceSqlError | PersistenceDecodeError;

@@ -2,7 +2,7 @@ import { IsoDateTime } from "@t3tools/contracts";
 import { Option, Schema, ServiceMap } from "effect";
 import type { Effect } from "effect";
 
-import type { ProjectionRepositoryError } from "../Errors.ts";
+import type { IssueQueueRepositoryError } from "../Errors.ts";
 import {
   IssueQueueEntry,
   IssueQueueId,
@@ -32,20 +32,20 @@ export const DeleteIssueQueueByIdInput = GetIssueQueueByIdInput;
 export type DeleteIssueQueueByIdInput = typeof DeleteIssueQueueByIdInput.Type;
 
 export interface IssueQueueRepositoryShape {
-  readonly insert: (issue: IssueQueueEntryType) => Effect.Effect<void, ProjectionRepositoryError>;
-  readonly update: (issue: IssueQueueEntryType) => Effect.Effect<void, ProjectionRepositoryError>;
+  readonly insert: (issue: IssueQueueEntryType) => Effect.Effect<void, IssueQueueRepositoryError>;
+  readonly update: (issue: IssueQueueEntryType) => Effect.Effect<void, IssueQueueRepositoryError>;
   readonly updateStatus: (
     input: UpdateIssueQueueStatusInput,
-  ) => Effect.Effect<void, ProjectionRepositoryError>;
+  ) => Effect.Effect<void, IssueQueueRepositoryError>;
   readonly getById: (
     input: GetIssueQueueByIdInput,
-  ) => Effect.Effect<Option.Option<IssueQueueEntryType>, ProjectionRepositoryError>;
+  ) => Effect.Effect<Option.Option<IssueQueueEntryType>, IssueQueueRepositoryError>;
   readonly listByStatus: (
     input: ListIssueQueueByStatusInput,
-  ) => Effect.Effect<ReadonlyArray<IssueQueueEntryType>, ProjectionRepositoryError>;
+  ) => Effect.Effect<ReadonlyArray<IssueQueueEntryType>, IssueQueueRepositoryError>;
   readonly deleteById: (
     input: DeleteIssueQueueByIdInput,
-  ) => Effect.Effect<void, ProjectionRepositoryError>;
+  ) => Effect.Effect<void, IssueQueueRepositoryError>;
 }
 
 export class IssueQueueRepository extends ServiceMap.Service<

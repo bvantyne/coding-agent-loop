@@ -2,7 +2,7 @@ import { IsoDateTime } from "@t3tools/contracts";
 import { Option, Schema, ServiceMap } from "effect";
 import type { Effect } from "effect";
 
-import type { ProjectionRepositoryError } from "../Errors.ts";
+import type { AgentSessionRepositoryError } from "../Errors.ts";
 import {
   AgentCliBackend,
   AgentSessionEntry,
@@ -38,26 +38,26 @@ export type DeleteAgentSessionByIdInput = typeof DeleteAgentSessionByIdInput.Typ
 export interface AgentSessionRepositoryShape {
   readonly insert: (
     session: AgentSessionEntryType,
-  ) => Effect.Effect<void, ProjectionRepositoryError>;
+  ) => Effect.Effect<void, AgentSessionRepositoryError>;
   readonly update: (
     session: AgentSessionEntryType,
-  ) => Effect.Effect<void, ProjectionRepositoryError>;
+  ) => Effect.Effect<void, AgentSessionRepositoryError>;
   readonly updateStatus: (
     input: UpdateAgentSessionStatusInput,
-  ) => Effect.Effect<void, ProjectionRepositoryError>;
+  ) => Effect.Effect<void, AgentSessionRepositoryError>;
   readonly getById: (
     input: GetAgentSessionByIdInput,
-  ) => Effect.Effect<Option.Option<AgentSessionEntryType>, ProjectionRepositoryError>;
+  ) => Effect.Effect<Option.Option<AgentSessionEntryType>, AgentSessionRepositoryError>;
   readonly listByIssueId: (
     input: ListAgentSessionsByIssueInput,
-  ) => Effect.Effect<ReadonlyArray<AgentSessionEntryType>, ProjectionRepositoryError>;
+  ) => Effect.Effect<ReadonlyArray<AgentSessionEntryType>, AgentSessionRepositoryError>;
   readonly listActive: () => Effect.Effect<
     ReadonlyArray<AgentSessionEntryType>,
-    ProjectionRepositoryError
+    AgentSessionRepositoryError
   >;
   readonly deleteById: (
     input: DeleteAgentSessionByIdInput,
-  ) => Effect.Effect<void, ProjectionRepositoryError>;
+  ) => Effect.Effect<void, AgentSessionRepositoryError>;
 }
 
 export class AgentSessionRepository extends ServiceMap.Service<

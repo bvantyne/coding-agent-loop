@@ -4,6 +4,7 @@ import * as SqlSchema from "effect/unstable/sql/SqlSchema";
 
 import { toPersistenceSqlError } from "../Errors.ts";
 import { toPersistenceSqlOrDecodeError } from "../repositoryHelpers.ts";
+import { JsonSerializableSchema } from "../Services/AgentStateSchemas.ts";
 import {
   DeletePlanArtifactByIdInput,
   GetPlanArtifactByIdInput,
@@ -15,7 +16,7 @@ import {
 
 const PlanArtifactDbRowSchema = PlanArtifactEntry.mapFields(
   Struct.assign({
-    feedbackRounds: Schema.NullOr(Schema.fromJsonString(Schema.Array(Schema.Unknown))),
+    feedbackRounds: Schema.NullOr(Schema.fromJsonString(Schema.Array(JsonSerializableSchema))),
   }),
 );
 

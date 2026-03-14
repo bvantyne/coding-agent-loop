@@ -38,6 +38,7 @@ export interface SqliteClientConfig {
   readonly filename: string;
   readonly readonly?: boolean | undefined;
   readonly allowExtension?: boolean | undefined;
+  readonly beginTransaction?: string | undefined;
   readonly prepareCacheSize?: number | undefined;
   readonly prepareCacheTTL?: Duration.Input | undefined;
   readonly spanAttributes?: Record<string, unknown> | undefined;
@@ -175,6 +176,7 @@ const makeWithDatabase = (
       acquirer,
       compiler,
       transactionAcquirer,
+      beginTransaction: options.beginTransaction,
       spanAttributes: [
         ...(options.spanAttributes ? Object.entries(options.spanAttributes) : []),
         [ATTR_DB_SYSTEM_NAME, "sqlite"],

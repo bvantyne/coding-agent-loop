@@ -18,6 +18,26 @@ export type AgentSessionId = typeof AgentSessionId.Type;
 export const PlanArtifactId = makeEntityId("PlanArtifactId");
 export type PlanArtifactId = typeof PlanArtifactId.Type;
 
+export type JsonSerializable =
+  | string
+  | number
+  | boolean
+  | null
+  | ReadonlyArray<JsonSerializable>
+  | { readonly [key: string]: JsonSerializable };
+
+export const JsonSerializableSchema: Schema.Codec<JsonSerializable> = Schema.Union([
+  Schema.String,
+  Schema.Number,
+  Schema.Boolean,
+  Schema.Null,
+  Schema.Array(Schema.suspend((): Schema.Codec<JsonSerializable> => JsonSerializableSchema)),
+  Schema.Record(
+    Schema.String,
+    Schema.suspend((): Schema.Codec<JsonSerializable> => JsonSerializableSchema),
+  ),
+]);
+
 export const IssueQueueStatus = Schema.Literals([
   "queued",
   "validating",
@@ -104,7 +124,7 @@ export const PlanArtifactEntry = Schema.Struct({
   issueId: IssueQueueId,
   version: PositiveInt,
   planContent: TrimmedNonEmptyString,
-  feedbackRounds: Schema.NullOr(Schema.Array(Schema.Unknown)),
+  feedbackRounds: Schema.NullOr(Schema.Array(JsonSerializableSchema)),
   status: PlanArtifactStatus,
   createdAt: IsoDateTime,
   approvedAt: Schema.NullOr(IsoDateTime),

@@ -1,7 +1,7 @@
 import { Option, Schema, ServiceMap } from "effect";
 import type { Effect } from "effect";
 
-import type { ProjectionRepositoryError } from "../Errors.ts";
+import type { PlanArtifactRepositoryError } from "../Errors.ts";
 import {
   IssueQueueId,
   PlanArtifactEntry,
@@ -26,22 +26,22 @@ export type DeletePlanArtifactByIdInput = typeof DeletePlanArtifactByIdInput.Typ
 export interface PlanArtifactRepositoryShape {
   readonly insert: (
     artifact: PlanArtifactEntryType,
-  ) => Effect.Effect<void, ProjectionRepositoryError>;
+  ) => Effect.Effect<void, PlanArtifactRepositoryError>;
   readonly update: (
     artifact: PlanArtifactEntryType,
-  ) => Effect.Effect<void, ProjectionRepositoryError>;
+  ) => Effect.Effect<void, PlanArtifactRepositoryError>;
   readonly getById: (
     input: GetPlanArtifactByIdInput,
-  ) => Effect.Effect<Option.Option<PlanArtifactEntryType>, ProjectionRepositoryError>;
+  ) => Effect.Effect<Option.Option<PlanArtifactEntryType>, PlanArtifactRepositoryError>;
   readonly getLatestByIssueId: (
     input: ListPlanArtifactsByIssueInput,
-  ) => Effect.Effect<Option.Option<PlanArtifactEntryType>, ProjectionRepositoryError>;
+  ) => Effect.Effect<Option.Option<PlanArtifactEntryType>, PlanArtifactRepositoryError>;
   readonly listVersionsByIssueId: (
     input: ListPlanArtifactsByIssueInput,
-  ) => Effect.Effect<ReadonlyArray<PlanArtifactEntryType>, ProjectionRepositoryError>;
+  ) => Effect.Effect<ReadonlyArray<PlanArtifactEntryType>, PlanArtifactRepositoryError>;
   readonly deleteById: (
     input: DeletePlanArtifactByIdInput,
-  ) => Effect.Effect<void, ProjectionRepositoryError>;
+  ) => Effect.Effect<void, PlanArtifactRepositoryError>;
 }
 
 export class PlanArtifactRepository extends ServiceMap.Service<

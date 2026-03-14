@@ -5,7 +5,7 @@
 
 ## Executive Summary
 
-The project is **logically well-structured overall** — the milestone layering is sound, the dependency graph has no circular dependencies, and the epic/child hierarchy is clean. However, the analysis uncovered **5 informal cross-references that should be formalized as blocking relations**, **1 critical logical gap** (no issue covers PR creation and human review workflow — the project's only human-in-the-loop step), and **4 missing issues** for retry/recovery, credential gating, and the review-to-merge handoff. The dependency graph resolves cleanly into 10 execution layers with CODE-2 and CODE-8 as the two true starting points.
+The project is **logically well-structured overall** — the milestone layering is sound, the dependency graph has no circular dependencies, and the epic/child hierarchy is clean. However, the analysis uncovered **5 informal cross-references that should be formalized as explicit dependency relations using the detailed relation types below** (blocking, informational, related-to, etc.), **1 critical logical gap** (no issue covers PR creation and human review workflow — the project's only human-in-the-loop step), and **4 missing issues** for retry/recovery, credential gating, and the review-to-merge handoff. The dependency graph resolves cleanly into 10 execution layers with CODE-2 and CODE-8 as the two true starting points.
 
 ---
 
@@ -66,13 +66,13 @@ This sequencing is **logically sound** — foundations before services, services
 
 ### Missing Dependencies (informal references not formalized)
 
-| Issue   | References                     | Relation Needed                                                                                |
-| ------- | ------------------------------ | ---------------------------------------------------------------------------------------------- |
-| CODE-8  | CODE-3 in description          | Informational only — CODE-8 schema anticipates embedding storage. No blocker needed.           |
-| CODE-33 | CODE-31 in description         | CODE-33 should **block** CODE-31 — pipeline wiring needs validated credentials                 |
-| CODE-34 | CODE-9, CODE-10 in description | CODE-34 should have **blockedBy** on CODE-9 and CODE-10 — needs their event interfaces         |
-| CODE-36 | CODE-21 in description         | Informational — CODE-36 already blocks CODE-16 which transitively gates CODE-21                |
-| CODE-37 | CODE-26 in description         | CODE-37 should have a **related-to** link with CODE-26 — they share the verification interface |
+| Issue   | References                                                | Relation Needed                                                                                                                                                   |
+| ------- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CODE-8  | CODE-3 in description                                     | Informational only — CODE-8 schema anticipates embedding storage. No blocker needed.                                                                              |
+| CODE-33 | CODE-3, CODE-18, CODE-20, CODE-24, CODE-31 in description | CODE-33 should **block** CODE-3, CODE-18, CODE-20, CODE-24, and CODE-31 — every direct API consumer and the final pipeline wiring path need validated credentials |
+| CODE-34 | CODE-9, CODE-10 in description                            | CODE-34 should have **blockedBy** on CODE-9 and CODE-10 — needs their event interfaces                                                                            |
+| CODE-36 | CODE-21 in description                                    | Informational — CODE-36 already blocks CODE-16 which transitively gates CODE-21                                                                                   |
+| CODE-37 | CODE-26 in description                                    | CODE-37 should have a **related-to** link with CODE-26 — they share the verification interface                                                                    |
 
 ### Impossible Sequences
 
@@ -80,7 +80,7 @@ This sequencing is **logically sound** — foundations before services, services
 
 ### Missing Foundation Issues
 
-**CODE-33 (credential validation) is unconnected downstream.** This is functionally a foundation service — every API-calling service needs validated credentials. But it blocks nothing, meaning the pipeline could be wired (CODE-31) without credential validation in place. This is the most significant missing foundation link.
+**CODE-33 (credential validation) is unconnected downstream.** This is functionally a foundation service — every API-calling service needs validated credentials. It should explicitly gate CODE-3, CODE-18, CODE-20, CODE-24, and CODE-31 so direct API consumers and the end-to-end wiring path cannot proceed without credentials in place. This is the most significant missing foundation link.
 
 ---
 
@@ -140,11 +140,11 @@ If every issue were completed perfectly, the system would be **~90% complete** a
 
 ## Recommended Actions (Prioritized)
 
-1. **Create a new issue: "PR creation and human review notification workflow"** under CODE-22 or CODE-27, blocked by CODE-25 and CODE-26. This is the project's stated human-in-the-loop step with zero coverage. _(Critical)_
+1. **Create a new issue: "PR creation and human review notification workflow"** under CODE-22 or CODE-27, blocked by CODE-25, CODE-26, and CODE-31. This is the project's stated human-in-the-loop step with zero coverage. _(Critical)_
 
 2. **Create a new issue: "Pipeline retry policy and failure recovery orchestration"** under CODE-27 or as a standalone, blocked by CODE-21, CODE-26, CODE-37. Defines retry limits, failure escalation, and stuck-issue detection. _(High)_
 
-3. **Add blocking relation: CODE-33 → CODE-31.** Credential validation must be complete before end-to-end pipeline wiring. _(High)_
+3. **Add blocking relations: CODE-33 → CODE-3, CODE-18, CODE-20, CODE-24, and CODE-31.** Credential validation must be complete before any direct API consumer or the final end-to-end pipeline wiring can proceed. _(High)_
 
 4. **Add blocking relations: CODE-9 and CODE-10 → CODE-34.** Structured logging needs agent lifecycle and state machine event interfaces. _(Warning)_
 
