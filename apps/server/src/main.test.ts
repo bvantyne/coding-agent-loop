@@ -110,8 +110,11 @@ it.layer(testLayer)("server CLI command", (it) => {
       assert.equal(resolvedConfig?.mode, "desktop");
       assert.equal(resolvedConfig?.port, 4010);
       assert.equal(resolvedConfig?.host, "0.0.0.0");
-      assert.equal(resolvedConfig?.stateDir, "/tmp/t3-cli-state");
-      assert.equal(resolvedConfig?.agentStateDbPath, "/tmp/t3-cli-state/custom-agent-state.db");
+      assert.equal(resolvedConfig?.stateDir, path.resolve("/tmp/t3-cli-state"));
+      assert.equal(
+        resolvedConfig?.agentStateDbPath,
+        path.resolve("/tmp/t3-cli-state/custom-agent-state.db"),
+      );
       assert.equal(resolvedConfig?.devUrl?.toString(), "http://127.0.0.1:5173/");
       assert.equal(resolvedConfig?.noBrowser, true);
       assert.equal(resolvedConfig?.authToken, "auth-secret");
@@ -147,8 +150,11 @@ it.layer(testLayer)("server CLI command", (it) => {
       assert.equal(resolvedConfig?.mode, "desktop");
       assert.equal(resolvedConfig?.port, 4999);
       assert.equal(resolvedConfig?.host, "100.88.10.4");
-      assert.equal(resolvedConfig?.stateDir, "/tmp/t3-env-state");
-      assert.equal(resolvedConfig?.agentStateDbPath, "/tmp/t3-env-state/custom-agent-state.db");
+      assert.equal(resolvedConfig?.stateDir, path.resolve("/tmp/t3-env-state"));
+      assert.equal(
+        resolvedConfig?.agentStateDbPath,
+        path.resolve("/tmp/t3-env-state/custom-agent-state.db"),
+      );
       assert.equal(resolvedConfig?.devUrl?.toString(), "http://localhost:5173/");
       assert.equal(resolvedConfig?.noBrowser, true);
       assert.equal(resolvedConfig?.authToken, "env-token");
@@ -194,7 +200,7 @@ it.layer(testLayer)("server CLI command", (it) => {
       assert.equal(start.mock.calls.length, 1);
       assert.equal(resolvedConfig?.port, 5444);
       assert.equal(resolvedConfig?.mode, "web");
-      assert.ok(resolvedConfig?.agentStateDbPath.endsWith("/agent-state.db"));
+      assert.equal(path.basename(resolvedConfig?.agentStateDbPath ?? ""), "agent-state.db");
     }),
   );
 
@@ -212,8 +218,11 @@ it.layer(testLayer)("server CLI command", (it) => {
           T3CODE_NO_BROWSER: "true",
         });
 
-        assert.equal(resolvedConfig?.stateDir, stateDir);
-        assert.equal(resolvedConfig?.agentStateDbPath, path.join(stateDir, "state.sqlite"));
+        assert.equal(resolvedConfig?.stateDir, path.resolve(stateDir));
+        assert.equal(
+          resolvedConfig?.agentStateDbPath,
+          path.resolve(path.join(stateDir, "state.sqlite")),
+        );
       }),
   );
 
@@ -232,8 +241,11 @@ it.layer(testLayer)("server CLI command", (it) => {
           T3CODE_NO_BROWSER: "true",
         });
 
-        assert.equal(resolvedConfig?.stateDir, stateDir);
-        assert.equal(resolvedConfig?.agentStateDbPath, path.join(stateDir, "agent-state.db"));
+        assert.equal(resolvedConfig?.stateDir, path.resolve(stateDir));
+        assert.equal(
+          resolvedConfig?.agentStateDbPath,
+          path.resolve(path.join(stateDir, "agent-state.db")),
+        );
       }),
   );
 
