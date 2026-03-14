@@ -28,6 +28,7 @@
     "effect": "catalog:",
     "node-pty": "^1.1.0",
     "open": "^10.1.0",
+    "typescript": "catalog:",
     "ws": "^8.18.0"
   },
   "devDependencies": {
@@ -40,7 +41,6 @@
     "@types/node": "catalog:",
     "@types/ws": "^8.5.13",
     "tsdown": "catalog:",
-    "typescript": "catalog:",
     "vitest": "catalog:"
   },
   "engines": {

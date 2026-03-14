@@ -36,6 +36,7 @@ import { GitServiceLive } from "./git/Layers/GitService";
 import { BunPtyAdapterLive } from "./terminal/Layers/BunPTY";
 import { NodePtyAdapterLive } from "./terminal/Layers/NodePTY";
 import { AnalyticsService } from "./telemetry/Services/AnalyticsService";
+import { CodeChunkerLive } from "./contextEngine/Layers/CodeChunker";
 
 export function makeServerProviderLayer(): Layer.Layer<
   ProviderService,
@@ -123,6 +124,7 @@ export function makeServerRuntimeServicesLayer() {
 
   return Layer.mergeAll(
     orchestrationReactorLayer,
+    CodeChunkerLive,
     gitCoreLayer,
     gitManagerLayer,
     terminalLayer,
