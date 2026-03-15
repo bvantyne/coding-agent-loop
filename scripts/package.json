@@ -5,7 +5,7 @@
   "scripts": {
     "prepare": "effect-language-service patch",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "bun ./run-node-tests.mjs \"**/*.test.ts\""
   },
   "dependencies": {
     "@effect/platform-node": "catalog:",
@@ -15,7 +15,6 @@
   },
   "devDependencies": {
     "@effect/language-service": "catalog:",
-    "@effect/vitest": "catalog:",
     "@types/bun": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

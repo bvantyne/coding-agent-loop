@@ -6,15 +6,16 @@ Use this when you want to open T3 Code from another device (phone, tablet, anoth
 
 The T3 Code CLI accepts the following configuration options, available either as CLI flags or environment variables:
 
-| CLI flag                | Env var               | Notes                              |
-| ----------------------- | --------------------- | ---------------------------------- |
-| `--mode <web\|desktop>` | `T3CODE_MODE`         | Runtime mode.                      |
-| `--port <number>`       | `T3CODE_PORT`         | HTTP/WebSocket port.               |
-| `--host <address>`      | `T3CODE_HOST`         | Bind interface/address.            |
-| `--state-dir <path>`    | `T3CODE_STATE_DIR`    | State directory.                   |
-| `--dev-url <url>`       | `VITE_DEV_SERVER_URL` | Dev web URL redirect/proxy target. |
-| `--no-browser`          | `T3CODE_NO_BROWSER`   | Disable auto-open browser.         |
-| `--auth-token <token>`  | `T3CODE_AUTH_TOKEN`   | WebSocket auth token.              |
+| CLI flag                       | Env var                      | Notes                                   |
+| ------------------------------ | ---------------------------- | --------------------------------------- |
+| `--mode <web\|desktop>`        | `T3CODE_MODE`                | Runtime mode.                           |
+| `--port <number>`              | `T3CODE_PORT`                | HTTP/WebSocket port.                    |
+| `--host <address>`             | `T3CODE_HOST`                | Bind interface/address.                 |
+| `--state-dir <path>`           | `T3CODE_STATE_DIR`           | State directory.                        |
+| `--agent-state-db-path <path>` | `T3CODE_AGENT_STATE_DB_PATH` | SQLite path for persistent agent state. |
+| `--dev-url <url>`              | `VITE_DEV_SERVER_URL`        | Dev web URL redirect/proxy target.      |
+| `--no-browser`                 | `T3CODE_NO_BROWSER`          | Disable auto-open browser.              |
+| `--auth-token <token>`         | `T3CODE_AUTH_TOKEN`          | WebSocket auth token.                   |
 
 > TIP: Use the `--help` flag to see all available options and their descriptions.
 

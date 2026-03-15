@@ -1,4 +1,6 @@
 import * as Http from "node:http";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it, vi } from "@effect/vitest";
 import type { OrchestrationReadModel } from "@t3tools/contracts";
@@ -15,6 +17,7 @@ import { ServerConfig, type ServerConfigShape } from "./config";
 import { Open, type OpenShape } from "./open";
 import { ProjectionSnapshotQuery } from "./orchestration/Services/ProjectionSnapshotQuery";
 import { AnalyticsService } from "./telemetry/Services/AnalyticsService";
+import { removeTempDirSync } from "./testFs";
 import { Server, type ServerShape } from "./wsServer";
 
 const start = vi.fn(() => undefined);
@@ -95,6 +98,8 @@ it.layer(testLayer)("server CLI command", (it) => {
         "0.0.0.0",
         "--state-dir",
         "/tmp/t3-cli-state",
+        "--agent-state-db-path",
+        "/tmp/t3-cli-state/custom-agent-state.db",
         "--dev-url",
         "http://127.0.0.1:5173",
         "--no-browser",
@@ -106,7 +111,11 @@ it.layer(testLayer)("server CLI command", (it) => {
       assert.equal(resolvedConfig?.mode, "desktop");
       assert.equal(resolvedConfig?.port, 4010);
       assert.equal(resolvedConfig?.host, "0.0.0.0");
-      assert.equal(resolvedConfig?.stateDir, "/tmp/t3-cli-state");
+      assert.equal(resolvedConfig?.stateDir, path.resolve("/tmp/t3-cli-state"));
+      assert.equal(
+        resolvedConfig?.agentStateDbPath,
+        path.resolve("/tmp/t3-cli-state/custom-agent-state.db"),
+      );
       assert.equal(resolvedConfig?.devUrl?.toString(), "http://127.0.0.1:5173/");
       assert.equal(resolvedConfig?.noBrowser, true);
       assert.equal(resolvedConfig?.authToken, "auth-secret");
@@ -132,6 +141,7 @@ it.layer(testLayer)("server CLI command", (it) => {
         T3CODE_PORT: "4999",
         T3CODE_HOST: "100.88.10.4",
         T3CODE_STATE_DIR: "/tmp/t3-env-state",
+        T3CODE_AGENT_STATE_DB_PATH: "/tmp/t3-env-state/custom-agent-state.db",
         VITE_DEV_SERVER_URL: "http://localhost:5173",
         T3CODE_NO_BROWSER: "true",
         T3CODE_AUTH_TOKEN: "env-token",
@@ -141,7 +151,11 @@ it.layer(testLayer)("server CLI command", (it) => {
       assert.equal(resolvedConfig?.mode, "desktop");
       assert.equal(resolvedConfig?.port, 4999);
       assert.equal(resolvedConfig?.host, "100.88.10.4");
-      assert.equal(resolvedConfig?.stateDir, "/tmp/t3-env-state");
+      assert.equal(resolvedConfig?.stateDir, path.resolve("/tmp/t3-env-state"));
+      assert.equal(
+        resolvedConfig?.agentStateDbPath,
+        path.resolve("/tmp/t3-env-state/custom-agent-state.db"),
+      );
       assert.equal(resolvedConfig?.devUrl?.toString(), "http://localhost:5173/");
       assert.equal(resolvedConfig?.noBrowser, true);
       assert.equal(resolvedConfig?.authToken, "env-token");
@@ -187,7 +201,61 @@ it.layer(testLayer)("server CLI command", (it) => {
       assert.equal(start.mock.calls.length, 1);
       assert.equal(resolvedConfig?.port, 5444);
       assert.equal(resolvedConfig?.mode, "web");
+      assert.equal(path.basename(resolvedConfig?.agentStateDbPath ?? ""), "agent-state.db");
     }),
+  );
+
+  it.effect(
+    "falls back to the legacy sqlite filename when present and no explicit db path is configured",
+    () =>
+      Effect.gen(function* () {
+        const stateDir = `/tmp/t3-cli-legacy-state-${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2, 10)}`;
+        fs.mkdirSync(stateDir, { recursive: true });
+        try {
+          fs.writeFileSync(path.join(stateDir, "state.sqlite"), "");
+
+          yield* runCli(["--state-dir", stateDir], {
+            T3CODE_NO_BROWSER: "true",
+          });
+
+          assert.equal(resolvedConfig?.stateDir, path.resolve(stateDir));
+          assert.equal(
+            resolvedConfig?.agentStateDbPath,
+            path.resolve(path.join(stateDir, "state.sqlite")),
+          );
+        } finally {
+          removeTempDirSync(stateDir);
+        }
+      }),
+  );
+
+  it.effect(
+    "prefers the default agent-state filename over the legacy sqlite filename when both exist",
+    () =>
+      Effect.gen(function* () {
+        const stateDir = `/tmp/t3-cli-agent-state-default-${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2, 10)}`;
+        fs.mkdirSync(stateDir, { recursive: true });
+        try {
+          fs.writeFileSync(path.join(stateDir, "agent-state.db"), "");
+          fs.writeFileSync(path.join(stateDir, "state.sqlite"), "");
+
+          yield* runCli(["--state-dir", stateDir], {
+            T3CODE_NO_BROWSER: "true",
+          });
+
+          assert.equal(resolvedConfig?.stateDir, path.resolve(stateDir));
+          assert.equal(
+            resolvedConfig?.agentStateDbPath,
+            path.resolve(path.join(stateDir, "agent-state.db")),
+          );
+        } finally {
+          removeTempDirSync(stateDir);
+        }
+      }),
   );
 
   it.effect("uses fixed localhost defaults in desktop mode", () =>

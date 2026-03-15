@@ -17,7 +17,9 @@ import {
 } from "./keybindings";
 
 const KeybindingsConfigJson = Schema.fromJsonString(KeybindingsConfig);
-const makeKeybindingsLayer = () =>
+const makeKeybindingsLayer = <E = never, R = never>(
+  keybindingsConfigPathEffect?: Effect.Effect<string, E, R>,
+) =>
   KeybindingsLive.pipe(
     Layer.provideMerge(
       Layer.effect(
@@ -25,8 +27,14 @@ const makeKeybindingsLayer = () =>
         Effect.gen(function* () {
           const fs = yield* FileSystem.FileSystem;
           const { join } = yield* Path.Path;
-          const dir = yield* fs.makeTempDirectoryScoped({ prefix: "t3code-server-config-test-" });
-          const configPath = join(dir, "keybindings.json");
+          const configPath = keybindingsConfigPathEffect
+            ? yield* keybindingsConfigPathEffect
+            : yield* Effect.gen(function* () {
+                const dir = yield* fs.makeTempDirectoryScoped({
+                  prefix: "t3code-server-config-test-",
+                });
+                return join(dir, "keybindings.json");
+              });
           return { keybindingsConfigPath: configPath } as ServerConfigShape;
         }),
       ),
@@ -392,16 +400,8 @@ it.layer(NodeServices.layer)("keybindings", (it) => {
     }).pipe(Effect.provide(makeKeybindingsLayer())),
   );
 
-  it.effect("fails when config directory is not writable", () =>
+  it.effect("fails when config parent path is not a directory", () =>
     Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const { keybindingsConfigPath } = yield* ServerConfig;
-      const { dirname } = yield* Path.Path;
-      yield* writeKeybindingsConfig(keybindingsConfigPath, [
-        { key: "mod+j", command: "terminal.toggle" },
-      ]);
-      yield* fs.chmod(dirname(keybindingsConfigPath), 0o500);
-
       const result = yield* Effect.gen(function* () {
         const keybindings = yield* Keybindings;
         return yield* keybindings.upsertKeybindingRule({
@@ -409,14 +409,31 @@ it.layer(NodeServices.layer)("keybindings", (it) => {
           command: "script.run-tests.run",
         });
       }).pipe(toDetailResult);
-      assertFailure(result, "failed to write keybindings config");
-
-      yield* fs.chmod(dirname(keybindingsConfigPath), 0o700);
-
-      const persisted = yield* readKeybindingsConfig(keybindingsConfigPath);
-      const persistedView = persisted.map(({ key, command }) => ({ key, command }));
-      assert.deepEqual(persistedView, [{ key: "mod+j", command: "terminal.toggle" }]);
-    }).pipe(Effect.provide(makeKeybindingsLayer())),
+      if (result._tag !== "Failure") {
+        assert.fail("expected keybinding upsert to fail");
+      }
+      // This can fail during config access or config write, depending on which
+      // operation happens first once the parent path turns out not to be a directory.
+      assert.isTrue(
+        result.failure === "failed to access keybindings config" ||
+          result.failure === "failed to write keybindings config",
+      );
+    }).pipe(
+      Effect.provide(
+        makeKeybindingsLayer(
+          Effect.gen(function* () {
+            const fs = yield* FileSystem.FileSystem;
+            const { join } = yield* Path.Path;
+            const blockedRoot = yield* fs.makeTempDirectoryScoped({
+              prefix: "t3code-keybindings-",
+            });
+            const blockedParent = join(blockedRoot, "blocked-parent");
+            yield* fs.writeFileString(blockedParent, "not-a-directory");
+            return join(blockedParent, "keybindings.json");
+          }),
+        ),
+      ),
+    ),
   );
 
   it.effect("caches loaded resolved config across repeated reads", () =>

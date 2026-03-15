@@ -504,6 +504,7 @@ describe("WebSocket Server", () => {
       cwd: options.cwd ?? "/test/project",
       keybindingsConfigPath: path.join(stateDir, "keybindings.json"),
       stateDir,
+      agentStateDbPath: path.join(stateDir, "agent-state.db"),
       staticDir: options.staticDir,
       devUrl: options.devUrl ? new URL(options.devUrl) : undefined,
       noBrowser: true,

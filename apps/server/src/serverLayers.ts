@@ -7,6 +7,7 @@ import * as SqlClient from "effect/unstable/sql/SqlClient";
 import { CheckpointDiffQueryLive } from "./checkpointing/Layers/CheckpointDiffQuery";
 import { CheckpointStoreLive } from "./checkpointing/Layers/CheckpointStore";
 import { ServerConfig } from "./config";
+import { AgentStateRepositoriesLive } from "./persistence/Layers/AgentState";
 import { OrchestrationCommandReceiptRepositoryLive } from "./persistence/Layers/OrchestrationCommandReceipts";
 import { OrchestrationEventStoreLive } from "./persistence/Layers/OrchestrationEventStore";
 import { ProviderSessionRuntimeRepositoryLive } from "./persistence/Layers/ProviderSessionRuntime";
@@ -37,6 +38,11 @@ import { BunPtyAdapterLive } from "./terminal/Layers/BunPTY";
 import { NodePtyAdapterLive } from "./terminal/Layers/NodePTY";
 import { AnalyticsService } from "./telemetry/Services/AnalyticsService";
 
+/**
+ * Builds the server provider Layer that wires the provider service, adapter registry, session directory, and event loggers.
+ *
+ * @returns A Layer that yields a `ProviderService`, may fail with `ProviderUnsupportedError`, and provides `SqlClient`, `ServerConfig`, `FileSystem`, and `AnalyticsService`.
+ */
 export function makeServerProviderLayer(): Layer.Layer<
   ProviderService,
   ProviderUnsupportedError,
@@ -68,6 +74,11 @@ export function makeServerProviderLayer(): Layer.Layer<
   }).pipe(Layer.unwrap);
 }
 
+/**
+ * Compose the server runtime services layer for the application.
+ *
+ * @returns A Layer providing orchestration, runtime ingestion, checkpointing and snapshot queries, provider and orchestration reactors, Git core and manager, text generation, terminal management, keybindings, agent state repositories, and Node services
+ */
 export function makeServerRuntimeServicesLayer() {
   const gitCoreLayer = GitCoreLive.pipe(Layer.provideMerge(GitServiceLive));
   const textGenerationLayer = CodexTextGenerationLive;
@@ -122,6 +133,7 @@ export function makeServerRuntimeServicesLayer() {
   );
 
   return Layer.mergeAll(
+    AgentStateRepositoriesLive,
     orchestrationReactorLayer,
     gitCoreLayer,
     gitManagerLayer,
