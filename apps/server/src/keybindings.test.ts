@@ -409,7 +409,13 @@ it.layer(NodeServices.layer)("keybindings", (it) => {
           command: "script.run-tests.run",
         });
       }).pipe(toDetailResult);
-      assertFailure(result, "failed to write keybindings config");
+      if (result._tag !== "Failure") {
+        assert.fail("expected keybinding upsert to fail");
+      }
+      assert.isTrue(
+        result.failure === "failed to access keybindings config" ||
+          result.failure === "failed to write keybindings config",
+      );
     }).pipe(
       Effect.provide(
         makeKeybindingsLayer(

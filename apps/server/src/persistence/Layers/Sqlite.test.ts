@@ -8,6 +8,7 @@ import { Effect, Layer } from "effect";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 
 import { ServerConfig, type ServerConfigShape } from "../../config.ts";
+import { removeTempDirSync } from "../../testFs.ts";
 import { agentStateLayerConfig, layerConfig } from "./Sqlite.ts";
 
 const makeServerConfigLayer = (stateDir: string, agentStateDbPath: string) =>
@@ -49,7 +50,7 @@ it("keeps the shared persistence database on state.sqlite when agent state is cu
 
     assert.equal(rows[0]?.file, path.join(stateDir, "state.sqlite"));
   } finally {
-    fs.rmSync(stateDir, { recursive: true, force: true });
+    removeTempDirSync(stateDir);
   }
 });
 
@@ -75,6 +76,6 @@ it("uses the dedicated agent state database path for agent-state repositories", 
 
     assert.equal(rows[0]?.file, customAgentStateDbPath);
   } finally {
-    fs.rmSync(stateDir, { recursive: true, force: true });
+    removeTempDirSync(stateDir);
   }
 });

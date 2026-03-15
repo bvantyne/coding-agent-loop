@@ -43,6 +43,7 @@ import {
   SqlitePersistenceMemory,
 } from "../../persistence/Layers/Sqlite.ts";
 import { AnalyticsService } from "../../telemetry/Services/AnalyticsService.ts";
+import { removeTempDirSync } from "../../testFs.ts";
 
 const asRequestId = (value: string): ApprovalRequestId => ApprovalRequestId.makeUnsafe(value);
 const asEventId = (value: string): EventId => EventId.makeUnsafe(value);
@@ -312,7 +313,7 @@ it.effect("ProviderServiceLive keeps persisted resumable sessions on startup", (
     }).pipe(Effect.provide(persistenceLayer));
     assert.equal(legacyTableRows.length, 0);
 
-    fs.rmSync(tempDir, { recursive: true, force: true });
+    removeTempDirSync(tempDir);
   }).pipe(Effect.provide(NodeServices.layer)),
 );
 
@@ -414,7 +415,7 @@ it.effect(
       assert.equal(typeof rollbackCall?.[0], "string");
       assert.equal(rollbackCall?.[1], 1);
 
-      fs.rmSync(tempDir, { recursive: true, force: true });
+      removeTempDirSync(tempDir);
     }).pipe(Effect.provide(NodeServices.layer)),
 );
 

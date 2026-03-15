@@ -17,6 +17,7 @@ import { ServerConfig, type ServerConfigShape } from "./config";
 import { Open, type OpenShape } from "./open";
 import { ProjectionSnapshotQuery } from "./orchestration/Services/ProjectionSnapshotQuery";
 import { AnalyticsService } from "./telemetry/Services/AnalyticsService";
+import { removeTempDirSync } from "./testFs";
 import { Server, type ServerShape } from "./wsServer";
 
 const start = vi.fn(() => undefined);
@@ -225,7 +226,7 @@ it.layer(testLayer)("server CLI command", (it) => {
             path.resolve(path.join(stateDir, "state.sqlite")),
           );
         } finally {
-          fs.rmSync(stateDir, { recursive: true, force: true });
+          removeTempDirSync(stateDir);
         }
       }),
   );
@@ -252,7 +253,7 @@ it.layer(testLayer)("server CLI command", (it) => {
             path.resolve(path.join(stateDir, "agent-state.db")),
           );
         } finally {
-          fs.rmSync(stateDir, { recursive: true, force: true });
+          removeTempDirSync(stateDir);
         }
       }),
   );
