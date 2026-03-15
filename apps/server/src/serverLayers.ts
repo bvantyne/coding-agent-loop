@@ -38,6 +38,11 @@ import { BunPtyAdapterLive } from "./terminal/Layers/BunPTY";
 import { NodePtyAdapterLive } from "./terminal/Layers/NodePTY";
 import { AnalyticsService } from "./telemetry/Services/AnalyticsService";
 
+/**
+ * Builds the server provider Layer that wires the provider service, adapter registry, session directory, and event loggers.
+ *
+ * @returns A Layer that yields a `ProviderService`, may fail with `ProviderUnsupportedError`, and provides `SqlClient`, `ServerConfig`, `FileSystem`, and `AnalyticsService`.
+ */
 export function makeServerProviderLayer(): Layer.Layer<
   ProviderService,
   ProviderUnsupportedError,
@@ -70,11 +75,9 @@ export function makeServerProviderLayer(): Layer.Layer<
 }
 
 /**
- * Builds and composes the server runtime services layer used by the application.
+ * Compose the server runtime services layer for the application.
  *
- * This Layer wires together orchestration (engine, projection pipeline, event store, command receipt repository), runtime ingestion, checkpointing and snapshot queries, reactors (provider command, checkpoint, orchestration), Git core and manager, text generation, terminal management (Bun or Node pty adapter), keybindings, and agent state repositories, then provides Node services on top.
- *
- * @returns A Layer that provides orchestration, reactors, checkpointing, runtime ingestion, Git (core and manager), text generation, terminal, keybindings, agent state repositories, and Node services
+ * @returns A Layer providing orchestration, runtime ingestion, checkpointing and snapshot queries, provider and orchestration reactors, Git core and manager, text generation, terminal management, keybindings, agent state repositories, and Node services
  */
 export function makeServerRuntimeServicesLayer() {
   const gitCoreLayer = GitCoreLive.pipe(Layer.provideMerge(GitServiceLive));
