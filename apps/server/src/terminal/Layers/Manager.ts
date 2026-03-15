@@ -331,7 +331,11 @@ export class TerminalManagerRuntime extends EventEmitter<TerminalManagerEvents> 
   private readonly shellResolver: () => string;
   private readonly persistQueues = new Map<string, Promise<void>>();
   private readonly persistTimers = new Map<string, ReturnType<typeof setTimeout>>();
-  private readonly pendingPersistHistory = new Map<string, string>();
+  private readonly pendingPersistHistory = new Map<
+    string,
+    { readonly history: string; readonly version: number }
+  >();
+  private readonly persistVersions = new Map<string, number>();
   private readonly threadLocks = new Map<string, Promise<void>>();
   private readonly persistDebounceMs: number;
   private readonly subprocessChecker: TerminalSubprocessChecker;
@@ -568,6 +572,7 @@ export class TerminalManagerRuntime extends EventEmitter<TerminalManagerEvents> 
     }
     this.killEscalationTimers.clear();
     this.pendingPersistHistory.clear();
+    this.persistVersions.clear();
     this.threadLocks.clear();
     this.persistQueues.clear();
   }
@@ -814,6 +819,7 @@ export class TerminalManagerRuntime extends EventEmitter<TerminalManagerEvents> 
       this.sessions.delete(key);
       this.clearPersistTimer(session.threadId, session.terminalId);
       this.pendingPersistHistory.delete(key);
+      this.persistVersions.delete(key);
       this.persistQueues.delete(key);
       this.clearKillEscalationTimer(session.process);
     }
@@ -821,7 +827,10 @@ export class TerminalManagerRuntime extends EventEmitter<TerminalManagerEvents> 
 
   private queuePersist(threadId: string, terminalId: string, history: string): void {
     const persistenceKey = toSessionKey(threadId, terminalId);
-    this.pendingPersistHistory.set(persistenceKey, history);
+    this.pendingPersistHistory.set(persistenceKey, {
+      history,
+      version: this.bumpPersistVersion(persistenceKey),
+    });
     this.schedulePersist(threadId, terminalId);
   }
 
@@ -833,16 +842,25 @@ export class TerminalManagerRuntime extends EventEmitter<TerminalManagerEvents> 
     const persistenceKey = toSessionKey(threadId, terminalId);
     this.clearPersistTimer(threadId, terminalId);
     this.pendingPersistHistory.delete(persistenceKey);
-    await this.enqueuePersistWrite(threadId, terminalId, history);
+    await this.enqueuePersistWrite(
+      threadId,
+      terminalId,
+      history,
+      this.bumpPersistVersion(persistenceKey),
+    );
   }
 
   private enqueuePersistWrite(
     threadId: string,
     terminalId: string,
     history: string,
+    version: number,
   ): Promise<void> {
     const persistenceKey = toSessionKey(threadId, terminalId);
     const task = async () => {
+      if (this.persistVersions.get(persistenceKey) !== version) {
+        return;
+      }
       await fs.promises.writeFile(this.historyPath(threadId, terminalId), history, "utf8");
     };
     const previous = this.persistQueues.get(persistenceKey) ?? Promise.resolve();
@@ -878,9 +896,17 @@ export class TerminalManagerRuntime extends EventEmitter<TerminalManagerEvents> 
     const timer = setTimeout(() => {
       this.persistTimers.delete(persistenceKey);
       const pendingHistory = this.pendingPersistHistory.get(persistenceKey);
-      if (pendingHistory === undefined) return;
+      if (!pendingHistory) return;
       this.pendingPersistHistory.delete(persistenceKey);
-      void this.enqueuePersistWrite(threadId, terminalId, pendingHistory);
+      if (this.persistVersions.get(persistenceKey) !== pendingHistory.version) {
+        return;
+      }
+      void this.enqueuePersistWrite(
+        threadId,
+        terminalId,
+        pendingHistory.history,
+        pendingHistory.version,
+      );
     }, this.persistDebounceMs);
     this.persistTimers.set(persistenceKey, timer);
   }
@@ -959,9 +985,14 @@ export class TerminalManagerRuntime extends EventEmitter<TerminalManagerEvents> 
 
     while (true) {
       const pendingHistory = this.pendingPersistHistory.get(persistenceKey);
-      if (pendingHistory !== undefined) {
+      if (pendingHistory) {
         this.pendingPersistHistory.delete(persistenceKey);
-        await this.enqueuePersistWrite(threadId, terminalId, pendingHistory);
+        await this.enqueuePersistWrite(
+          threadId,
+          terminalId,
+          pendingHistory.history,
+          pendingHistory.version,
+        );
       }
 
       const pending = this.persistQueues.get(persistenceKey);
@@ -1083,6 +1114,7 @@ export class TerminalManagerRuntime extends EventEmitter<TerminalManagerEvents> 
     if (deleteHistory) {
       await this.deleteHistory(threadId, terminalId);
     }
+    this.persistVersions.delete(key);
   }
 
   private sessionsForThread(threadId: string): TerminalSessionState[] {
@@ -1148,6 +1180,12 @@ export class TerminalManagerRuntime extends EventEmitter<TerminalManagerEvents> 
 
   private legacyHistoryPath(threadId: string): string {
     return path.join(this.logsDir, `${legacySafeThreadId(threadId)}.log`);
+  }
+
+  private bumpPersistVersion(persistenceKey: string): number {
+    const nextVersion = (this.persistVersions.get(persistenceKey) ?? 0) + 1;
+    this.persistVersions.set(persistenceKey, nextVersion);
+    return nextVersion;
   }
 
   private async runWithThreadLock<T>(threadId: string, task: () => Promise<T>): Promise<T> {

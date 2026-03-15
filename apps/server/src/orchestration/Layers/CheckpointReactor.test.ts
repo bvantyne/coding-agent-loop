@@ -189,6 +189,10 @@ function gitShowFileAtRef(cwd: string, ref: string, filePath: string): string {
   return runGit(cwd, ["show", `${ref}:${filePath}`]);
 }
 
+function normalizeLineEndings(value: string): string {
+  return value.replace(/\r\n/g, "\n");
+}
+
 async function waitForGitRefExists(cwd: string, ref: string, timeoutMs = 5000) {
   const deadline = Date.now() + timeoutMs;
   const poll = async (): Promise<void> => {
@@ -786,7 +790,9 @@ describe("CheckpointReactor", () => {
       threadId: ThreadId.makeUnsafe("thread-1"),
       numTurns: 1,
     });
-    expect(fs.readFileSync(path.join(harness.cwd, "README.md"), "utf8")).toBe("v2\n");
+    expect(normalizeLineEndings(fs.readFileSync(path.join(harness.cwd, "README.md"), "utf8"))).toBe(
+      "v2\n",
+    );
     expect(
       gitRefExists(harness.cwd, checkpointRefForThreadTurn(ThreadId.makeUnsafe("thread-1"), 2)),
     ).toBe(false);
