@@ -412,6 +412,8 @@ it.layer(NodeServices.layer)("keybindings", (it) => {
       if (result._tag !== "Failure") {
         assert.fail("expected keybinding upsert to fail");
       }
+      // This can fail during config access or config write, depending on which
+      // operation happens first once the parent path turns out not to be a directory.
       assert.isTrue(
         result.failure === "failed to access keybindings config" ||
           result.failure === "failed to write keybindings config",

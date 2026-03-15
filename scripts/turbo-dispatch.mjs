@@ -1,14 +1,29 @@
+import fs from "node:fs";
 import { spawnSync } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
 
 const args = process.argv.slice(2);
 const isWsl = process.platform === "linux" && os.release().toLowerCase().includes("microsoft");
-const cmdExecutable =
-  process.platform === "win32"
-    ? (process.env.COMSPEC ??
-      path.join(process.env.SystemRoot ?? "C:\\Windows", "System32", "cmd.exe"))
-    : "cmd.exe";
+const runnerArgs = ["scripts/turbo-runner.mjs", ...args];
+const resolveNodeExecutable = () => {
+  if (process.platform !== "win32") {
+    return path.basename(process.execPath).toLowerCase().startsWith("node")
+      ? process.execPath
+      : "node";
+  }
+
+  const configuredNodePath = process.env.NVM_SYMLINK;
+  const candidate =
+    configuredNodePath === undefined
+      ? path.join(process.env.ProgramFiles ?? "C:\\Program Files", "nodejs", "node.exe")
+      : path.extname(configuredNodePath).toLowerCase() === ".exe"
+        ? configuredNodePath
+        : path.join(configuredNodePath, "node.exe");
+
+  return fs.existsSync(candidate) ? candidate : "node";
+};
+const nodeExecutable = resolveNodeExecutable();
 
 const spawnAndExit = (command, commandArgs) => {
   const result = spawnSync(command, commandArgs, {
@@ -23,13 +38,11 @@ const spawnAndExit = (command, commandArgs) => {
 };
 
 if (process.platform === "win32") {
-  const command = ["node", "scripts\\turbo-runner.mjs", ...args].join(" ");
-
-  spawnAndExit(cmdExecutable, ["/d", "/s", "/c", command]);
+  spawnAndExit(nodeExecutable, runnerArgs);
 }
 
 if (isWsl) {
-  spawnAndExit("/bin/bash", ["-lc", ["node", "scripts/turbo-runner.mjs", ...args].join(" ")]);
+  spawnAndExit(nodeExecutable, runnerArgs);
 }
 
-spawnAndExit("node", ["scripts/turbo-runner.mjs", ...args]);
+spawnAndExit(nodeExecutable, runnerArgs);

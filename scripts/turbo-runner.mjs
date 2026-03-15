@@ -25,22 +25,31 @@ const createTurboEnv = () => {
   const windowsPathEntries = (env.PATH ?? "").split(";").filter(Boolean);
   const bunBinDirectory = path.join(os.homedir(), ".bun", "bin");
   const npmShimDirectory = env.APPDATA ? path.join(env.APPDATA, "npm") : undefined;
+  const gitCmdDirectoryCandidates = [
+    path.join(process.env.ProgramFiles ?? "C:\\Program Files", "Git", "cmd"),
+    path.join(process.env["ProgramFiles(x86)"] ?? "C:\\Program Files (x86)", "Git", "cmd"),
+  ];
+  const gitCmdDirectory = gitCmdDirectoryCandidates.find((candidate) => fs.existsSync(candidate));
   const normalizedBunBinDirectory = bunBinDirectory.toLowerCase();
   const normalizedNpmShimDirectory = npmShimDirectory?.toLowerCase();
+  const normalizedGitCmdDirectory = gitCmdDirectory?.toLowerCase();
   const remainingPathEntries = windowsPathEntries.filter((entry) => {
     const normalizedEntry = entry.toLowerCase();
 
     return (
       normalizedEntry !== normalizedBunBinDirectory &&
-      normalizedEntry !== normalizedNpmShimDirectory
+      normalizedEntry !== normalizedNpmShimDirectory &&
+      normalizedEntry !== normalizedGitCmdDirectory
     );
   });
 
   env.PATH = [
     ...(fs.existsSync(bunBinDirectory) ? [bunBinDirectory] : []),
+    ...(gitCmdDirectory ? [gitCmdDirectory] : []),
     ...remainingPathEntries,
     ...(npmShimDirectory ? [npmShimDirectory] : []),
   ].join(";");
+  env.Path = env.PATH;
 
   return env;
 };

@@ -28,6 +28,9 @@ if (process.platform === "win32") {
   const originalRmSync = fs.rmSync.bind(fs);
 
   fs.rmSync = ((targetPath, options) => {
+    const shouldRetry = isTempPath(targetPath);
+    let lastRetryableError: unknown;
+
     for (let attempt = 0; ; attempt += 1) {
       try {
         return originalRmSync(targetPath, options);
@@ -36,14 +39,16 @@ if (process.platform === "win32") {
           typeof error === "object" && error !== null && "code" in error
             ? String(error.code)
             : undefined;
+        lastRetryableError = error;
 
         if (
           code === undefined ||
           !RETRYABLE_RM_SYNC_CODES.has(code) ||
+          !shouldRetry ||
           attempt >= RETRYABLE_RM_SYNC_ATTEMPTS - 1
         ) {
-          if (code !== undefined && RETRYABLE_RM_SYNC_CODES.has(code) && isTempPath(targetPath)) {
-            return;
+          if (shouldRetry && lastRetryableError !== undefined) {
+            throw lastRetryableError;
           }
           throw error;
         }

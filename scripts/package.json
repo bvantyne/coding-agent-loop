@@ -5,7 +5,7 @@
   "scripts": {
     "prepare": "effect-language-service patch",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test ./*.test.ts"
+    "test": "bun ./run-node-tests.mjs \"**/*.test.ts\""
   },
   "dependencies": {
     "@effect/platform-node": "catalog:",
