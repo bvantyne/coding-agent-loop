@@ -765,6 +765,10 @@ function coalesceTinyCandidates(
         importStatements,
         code: `${current.code}\n\n${next.code}`,
       });
+      const mergedTokenCount = countTokens(content);
+      if (mergedTokenCount > MAX_CHUNK_TOKENS) {
+        break;
+      }
 
       current = {
         filePath: current.filePath,
@@ -777,7 +781,7 @@ function coalesceTinyCandidates(
         imports,
         importStatements,
         coalescible: true,
-        tokenCount: countTokens(content),
+        tokenCount: mergedTokenCount,
       };
       nextIndex += 1;
     }

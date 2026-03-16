@@ -67,10 +67,7 @@ function runShellCommand(input: {
   maxOutputBytes?: number;
 }): Effect.Effect<ProcessRunResult, Error> {
   return Effect.promise(() => {
-    const shellPath =
-      process.platform === "win32"
-        ? (process.env.ComSpec ?? "cmd.exe")
-        : (process.env.SHELL ?? "/bin/sh");
+    const shellPath = process.platform === "win32" ? (process.env.ComSpec ?? "cmd.exe") : "/bin/sh";
 
     const args =
       process.platform === "win32" ? ["/d", "/s", "/c", input.command] : ["-lc", input.command];

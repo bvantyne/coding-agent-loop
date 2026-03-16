@@ -27,6 +27,7 @@ export interface WorkspaceScan {
   readonly scannedAt: number;
   readonly filePaths: ReadonlyArray<string>;
   readonly directoryPaths: ReadonlyArray<string>;
+  readonly truncated: boolean;
 }
 
 export interface SearchableWorkspaceEntry extends ProjectEntry {
@@ -40,6 +41,10 @@ export interface WorkspaceSearchIndex {
   readonly truncated: boolean;
 }
 
+interface WorkspaceScanOptions {
+  readonly maxEntries?: number;
+}
+
 const workspaceScanCache = new Map<string, WorkspaceScan>();
 const inFlightWorkspaceScanBuilds = new Map<string, Promise<WorkspaceScan>>();
 const workspaceSearchIndexCache = new Map<string, WorkspaceSearchIndex>();
@@ -49,6 +54,19 @@ function trimCache<TKey, TValue>(cache: Map<TKey, TValue>): void {
     const oldestKey = cache.keys().next().value;
     if (!oldestKey) break;
     cache.delete(oldestKey);
+  }
+}
+
+function workspaceScanCacheKey(cwd: string, maxEntries?: number): string {
+  return `${cwd}\0${maxEntries === undefined ? "all" : String(maxEntries)}`;
+}
+
+function clearMatchingCacheEntries<TValue>(cache: Map<string, TValue>, cwd: string): void {
+  const prefix = `${cwd}\0`;
+  for (const key of cache.keys()) {
+    if (key.startsWith(prefix)) {
+      cache.delete(key);
+    }
   }
 }
 
@@ -217,7 +235,10 @@ async function filterGitIgnoredPaths(cwd: string, relativePaths: string[]): Prom
   return relativePaths.filter((relativePath) => !ignoredPaths.has(relativePath));
 }
 
-async function buildWorkspaceScanFromGit(cwd: string): Promise<WorkspaceScan | null> {
+async function buildWorkspaceScanFromGit(
+  cwd: string,
+  maxEntries?: number,
+): Promise<WorkspaceScan | null> {
   if (!(await isInsideGitWorkTree(cwd))) {
     return null;
   }
@@ -256,15 +277,25 @@ async function buildWorkspaceScanFromGit(cwd: string): Promise<WorkspaceScan | n
     }
   }
 
+  const directoryPaths = [...directorySet].toSorted((left, right) => left.localeCompare(right));
+  const totalEntries = directoryPaths.length + filePaths.length;
+  const boundedDirectoryPaths =
+    maxEntries === undefined ? directoryPaths : directoryPaths.slice(0, maxEntries);
+  const boundedFilePaths =
+    maxEntries === undefined
+      ? filePaths
+      : filePaths.slice(0, Math.max(0, maxEntries - boundedDirectoryPaths.length));
+
   return {
     scannedAt: Date.now(),
-    filePaths,
-    directoryPaths: [...directorySet].toSorted((left, right) => left.localeCompare(right)),
+    filePaths: boundedFilePaths,
+    directoryPaths: boundedDirectoryPaths,
+    truncated: Boolean(listedFiles.stdoutTruncated) || totalEntries > (maxEntries ?? Infinity),
   };
 }
 
-async function buildWorkspaceScan(cwd: string): Promise<WorkspaceScan> {
-  const gitIndexed = await buildWorkspaceScanFromGit(cwd);
+async function buildWorkspaceScan(cwd: string, maxEntries?: number): Promise<WorkspaceScan> {
+  const gitIndexed = await buildWorkspaceScanFromGit(cwd, maxEntries);
   if (gitIndexed) {
     return gitIndexed;
   }
@@ -273,8 +304,9 @@ async function buildWorkspaceScan(cwd: string): Promise<WorkspaceScan> {
   let pendingDirectories: string[] = [""];
   const filePaths: string[] = [];
   const directoryPaths: string[] = [];
+  let truncated = false;
 
-  while (pendingDirectories.length > 0) {
+  while (pendingDirectories.length > 0 && !truncated) {
     const currentDirectories = pendingDirectories;
     pendingDirectories = [];
     const directoryEntries = await mapWithConcurrency(
@@ -340,11 +372,25 @@ async function buildWorkspaceScan(cwd: string): Promise<WorkspaceScan> {
 
         if (candidate.dirent.isDirectory()) {
           directoryPaths.push(candidate.relativePath);
+          if (maxEntries !== undefined && directoryPaths.length + filePaths.length >= maxEntries) {
+            truncated = true;
+            pendingDirectories = [];
+            break;
+          }
           pendingDirectories.push(candidate.relativePath);
           continue;
         }
 
         filePaths.push(candidate.relativePath);
+        if (maxEntries !== undefined && directoryPaths.length + filePaths.length >= maxEntries) {
+          truncated = true;
+          pendingDirectories = [];
+          break;
+        }
+      }
+
+      if (truncated) {
+        break;
       }
     }
   }
@@ -353,6 +399,7 @@ async function buildWorkspaceScan(cwd: string): Promise<WorkspaceScan> {
     scannedAt: Date.now(),
     filePaths,
     directoryPaths,
+    truncated,
   };
 }
 
@@ -377,43 +424,49 @@ function buildWorkspaceSearchIndex(scan: WorkspaceScan): WorkspaceSearchIndex {
   return {
     scannedAt: scan.scannedAt,
     entries: entries.slice(0, WORKSPACE_INDEX_MAX_ENTRIES).map(toSearchableWorkspaceEntry),
-    truncated: entries.length > WORKSPACE_INDEX_MAX_ENTRIES,
+    truncated: scan.truncated || entries.length > WORKSPACE_INDEX_MAX_ENTRIES,
   };
 }
 
-async function getWorkspaceScan(cwd: string): Promise<WorkspaceScan> {
-  const cached = workspaceScanCache.get(cwd);
+async function getWorkspaceScan(
+  cwd: string,
+  options: WorkspaceScanOptions = {},
+): Promise<WorkspaceScan> {
+  const cacheKey = workspaceScanCacheKey(cwd, options.maxEntries);
+  const cached = workspaceScanCache.get(cacheKey);
   if (cached && Date.now() - cached.scannedAt < WORKSPACE_CACHE_TTL_MS) {
     return cached;
   }
 
-  const inFlight = inFlightWorkspaceScanBuilds.get(cwd);
+  const inFlight = inFlightWorkspaceScanBuilds.get(cacheKey);
   if (inFlight) {
     return inFlight;
   }
 
-  const nextPromise = buildWorkspaceScan(cwd)
+  const nextPromise = buildWorkspaceScan(cwd, options.maxEntries)
     .then((next) => {
-      workspaceScanCache.set(cwd, next);
+      workspaceScanCache.set(cacheKey, next);
       trimCache(workspaceScanCache);
       return next;
     })
     .finally(() => {
-      inFlightWorkspaceScanBuilds.delete(cwd);
+      inFlightWorkspaceScanBuilds.delete(cacheKey);
     });
-  inFlightWorkspaceScanBuilds.set(cwd, nextPromise);
+  inFlightWorkspaceScanBuilds.set(cacheKey, nextPromise);
   return nextPromise;
 }
 
 export async function getWorkspaceSearchIndex(cwd: string): Promise<WorkspaceSearchIndex> {
-  const scan = await getWorkspaceScan(cwd);
-  const cached = workspaceSearchIndexCache.get(cwd);
+  const searchMaxEntries = WORKSPACE_INDEX_MAX_ENTRIES;
+  const cacheKey = workspaceScanCacheKey(cwd, searchMaxEntries);
+  const scan = await getWorkspaceScan(cwd, { maxEntries: searchMaxEntries });
+  const cached = workspaceSearchIndexCache.get(cacheKey);
   if (cached && cached.scannedAt === scan.scannedAt) {
     return cached;
   }
 
   const next = buildWorkspaceSearchIndex(scan);
-  workspaceSearchIndexCache.set(cwd, next);
+  workspaceSearchIndexCache.set(cacheKey, next);
   trimCache(workspaceSearchIndexCache);
   return next;
 }
@@ -423,6 +476,9 @@ export async function listWorkspaceFiles(
   extensions?: ReadonlySet<string>,
 ): Promise<ReadonlyArray<string>> {
   const scan = await getWorkspaceScan(cwd);
+  if (scan.truncated) {
+    throw new Error(`Workspace file scan was truncated for '${cwd}'`);
+  }
   return scan.filePaths.filter((filePath) => {
     if (!extensions || extensions.size === 0) {
       return true;
@@ -432,7 +488,7 @@ export async function listWorkspaceFiles(
 }
 
 export function clearWorkspaceIndexCache(cwd: string): void {
-  workspaceScanCache.delete(cwd);
-  inFlightWorkspaceScanBuilds.delete(cwd);
-  workspaceSearchIndexCache.delete(cwd);
+  clearMatchingCacheEntries(workspaceScanCache, cwd);
+  clearMatchingCacheEntries(inFlightWorkspaceScanBuilds, cwd);
+  clearMatchingCacheEntries(workspaceSearchIndexCache, cwd);
 }

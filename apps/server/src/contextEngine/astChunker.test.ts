@@ -11,6 +11,25 @@ function buildLargeMethod(name: string, repeat = 80): string {
   ].join("\n");
 }
 
+function buildNearLimitConstStatement(): string {
+  for (let payloadLength = CHUNK_TOKEN_LIMITS.max * 4; payloadLength > 0; payloadLength -= 8) {
+    const candidate = `export const nearLimit = "${"x".repeat(payloadLength)}";`;
+    const [chunk] = chunkTypeScriptFile({
+      filePath: "src/near-limit.ts",
+      content: candidate,
+    });
+    if (
+      chunk &&
+      chunk.tokenCount < CHUNK_TOKEN_LIMITS.max &&
+      chunk.tokenCount >= CHUNK_TOKEN_LIMITS.max - 10
+    ) {
+      return candidate;
+    }
+  }
+
+  throw new Error("Unable to build near-limit const statement");
+}
+
 describe("chunkTypeScriptFile", () => {
   it("chunks an exported function with only relevant imports plus side-effect imports", () => {
     const chunks = chunkTypeScriptFile({
@@ -132,5 +151,16 @@ describe("chunkTypeScriptFile", () => {
       first.map((chunk) => ({ id: chunk.id, startLine: chunk.startLine, endLine: chunk.endLine })),
       second.map((chunk) => ({ id: chunk.id, startLine: chunk.startLine, endLine: chunk.endLine })),
     );
+  });
+
+  it("does not coalesce tiny chunks past the max token ceiling", () => {
+    const chunks = chunkTypeScriptFile({
+      filePath: "src/limits.ts",
+      content: ["export const tiny = 1;", buildNearLimitConstStatement()].join("\n"),
+    });
+
+    assert.lengthOf(chunks, 2);
+    assert.isTrue(chunks.every((chunk) => chunk.chunkType === "const"));
+    assert.isTrue(chunks.every((chunk) => chunk.tokenCount <= CHUNK_TOKEN_LIMITS.max));
   });
 });

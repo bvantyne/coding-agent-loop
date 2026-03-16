@@ -6,6 +6,8 @@
  *
  * @module Keybindings
  */
+import * as NodeFs from "node:fs";
+
 import {
   KeybindingRule,
   KeybindingsConfig,
@@ -80,6 +82,21 @@ function normalizeKeyToken(token: string): string {
   if (token === "space") return " ";
   if (token === "esc") return "escape";
   return token;
+}
+
+const SUPPORTS_RECURSIVE_WATCH = process.platform === "darwin" || process.platform === "win32";
+const KEYBINDINGS_POLL_INTERVAL_MS = 250;
+
+function normalizeWatchedPath(pathLike: string | Buffer | null | undefined): string | null {
+  if (typeof pathLike === "string") {
+    const trimmed = pathLike.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  if (pathLike instanceof Buffer) {
+    const decoded = pathLike.toString("utf8").trim();
+    return decoded.length > 0 ? decoded : null;
+  }
+  return null;
 }
 
 /** @internal - Exported for testing */
@@ -543,6 +560,13 @@ const makeKeybindings = Effect.gen(function* () {
     PubSub.publish(changesPubSub, configState).pipe(Effect.asVoid);
 
   const readConfigExists = fs.exists(keybindingsConfigPath).pipe(
+    Effect.catch((cause) => {
+      const code = (cause as NodeJS.ErrnoException).code;
+      if (code === "ENOENT" || code === "ENOTDIR") {
+        return Effect.succeed(false);
+      }
+      return Effect.fail(cause);
+    }),
     Effect.mapError(
       (cause) =>
         new KeybindingsConfigError({
@@ -568,7 +592,8 @@ const makeKeybindings = Effect.gen(function* () {
     readonly KeybindingRule[],
     KeybindingsConfigError
   > {
-    if (!(yield* readConfigExists)) {
+    const configExists = yield* readConfigExists.pipe(Effect.catch(() => Effect.succeed(false)));
+    if (!configExists) {
       return [];
     }
 
@@ -816,17 +841,72 @@ const makeKeybindings = Effect.gen(function* () {
     );
 
     const revalidateAndEmitSafely = revalidateAndEmit.pipe(Effect.ignoreCause({ log: true }));
-
-    yield* Stream.runForEach(fs.watch(keybindingsConfigDir), (event) => {
-      const isTargetConfigEvent =
-        event.path === keybindingsConfigFile ||
-        event.path === keybindingsConfigPath ||
-        path.resolve(keybindingsConfigDir, event.path) === keybindingsConfigPathResolved;
-      if (!isTargetConfigEvent) {
-        return Effect.void;
+    const readWatchSignature = (): string => {
+      try {
+        const stats = NodeFs.statSync(keybindingsConfigPath);
+        return `${stats.mtimeMs}:${stats.size}`;
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code === "ENOENT") {
+          return "missing";
+        }
+        throw error;
       }
-      return revalidateAndEmitSafely;
-    }).pipe(Effect.ignoreCause({ log: true }), Effect.forkIn(watcherScope), Effect.asVoid);
+    };
+    let lastWatchSignature = readWatchSignature();
+    const triggerRevalidateIfChanged = () => {
+      let nextSignature: string;
+      try {
+        nextSignature = readWatchSignature();
+      } catch {
+        return;
+      }
+      if (nextSignature === lastWatchSignature) {
+        return;
+      }
+      lastWatchSignature = nextSignature;
+      void Effect.runPromise(revalidateAndEmitSafely);
+    };
+
+    const watcher = yield* Effect.try({
+      try: () =>
+        NodeFs.watch(
+          keybindingsConfigDir,
+          { recursive: SUPPORTS_RECURSIVE_WATCH },
+          (_eventType, watchedPath) => {
+            const eventPath = normalizeWatchedPath(watchedPath);
+            if (!eventPath) {
+              return;
+            }
+            const isTargetConfigEvent =
+              eventPath === keybindingsConfigFile ||
+              eventPath === keybindingsConfigPath ||
+              path.resolve(keybindingsConfigDir, eventPath) === keybindingsConfigPathResolved;
+            if (!isTargetConfigEvent) {
+              return;
+            }
+            triggerRevalidateIfChanged();
+          },
+        ),
+      catch: (cause) =>
+        new KeybindingsConfigError({
+          configPath: keybindingsConfigPath,
+          detail: "failed to watch keybindings config directory",
+          cause,
+        }),
+    });
+
+    yield* Scope.addFinalizer(
+      watcherScope,
+      Effect.sync(() => watcher.close()).pipe(Effect.orElseSucceed(() => undefined)),
+    );
+
+    const pollingHandle = setInterval(triggerRevalidateIfChanged, KEYBINDINGS_POLL_INTERVAL_MS);
+    pollingHandle.unref?.();
+    yield* Scope.addFinalizer(
+      watcherScope,
+      Effect.sync(() => clearInterval(pollingHandle)).pipe(Effect.orElseSucceed(() => undefined)),
+    );
   });
 
   const start = Effect.gen(function* () {

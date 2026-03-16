@@ -38,6 +38,10 @@ import { NodePtyAdapterLive } from "./terminal/Layers/NodePTY";
 import { AnalyticsService } from "./telemetry/Services/AnalyticsService";
 import { CodeChunkerLive } from "./contextEngine/Layers/CodeChunker";
 
+interface ServerRuntimeServicesLayerOptions {
+  readonly includeTerminal?: boolean;
+}
+
 export function makeServerProviderLayer(): Layer.Layer<
   ProviderService,
   ProviderUnsupportedError,
@@ -69,7 +73,8 @@ export function makeServerProviderLayer(): Layer.Layer<
   }).pipe(Layer.unwrap);
 }
 
-export function makeServerRuntimeServicesLayer() {
+export function makeServerRuntimeServicesLayer(options: ServerRuntimeServicesLayerOptions = {}) {
+  const includeTerminal = options.includeTerminal ?? true;
   const gitCoreLayer = GitCoreLive.pipe(Layer.provideMerge(GitServiceLive));
   const textGenerationLayer = CodexTextGenerationLive;
 
@@ -127,7 +132,7 @@ export function makeServerRuntimeServicesLayer() {
     CodeChunkerLive,
     gitCoreLayer,
     gitManagerLayer,
-    terminalLayer,
     KeybindingsLive,
+    ...(includeTerminal ? [terminalLayer] : []),
   ).pipe(Layer.provideMerge(NodeServices.layer));
 }

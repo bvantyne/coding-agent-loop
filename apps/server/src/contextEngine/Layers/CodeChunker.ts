@@ -84,7 +84,10 @@ const makeCodeChunker = Effect.sync(() => {
       catch: (cause) =>
         new CodeChunkerError({
           operation: "chunkWorkspace",
-          detail: `Unable to chunk workspace at ${input.cwd}`,
+          detail:
+            cause instanceof Error
+              ? `Unable to chunk workspace at ${input.cwd}: ${cause.message}`
+              : `Unable to chunk workspace at ${input.cwd}`,
           cause,
         }),
     });

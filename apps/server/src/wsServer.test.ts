@@ -497,6 +497,7 @@ describe("WebSocket Server", () => {
       options.providerHealth ?? defaultProviderHealthService,
     );
     const openLayer = Layer.succeed(Open, options.open ?? defaultOpenService);
+    const terminalManager = options.terminalManager ?? new MockTerminalManager();
     const serverConfigLayer = Layer.succeed(ServerConfig, {
       mode: "web",
       port: 0,
@@ -517,14 +518,14 @@ describe("WebSocket Server", () => {
       options.gitCore
         ? Layer.succeed(GitCore, options.gitCore as unknown as GitCoreShape)
         : Layer.empty,
-      options.terminalManager
-        ? Layer.succeed(TerminalManager, options.terminalManager)
-        : Layer.empty,
+      Layer.succeed(TerminalManager, terminalManager),
     );
 
     const runtimeLayer = Layer.merge(
       Layer.merge(
-        makeServerRuntimeServicesLayer().pipe(Layer.provide(infrastructureLayer)),
+        makeServerRuntimeServicesLayer({ includeTerminal: false }).pipe(
+          Layer.provide(infrastructureLayer),
+        ),
         infrastructureLayer,
       ),
       runtimeOverrides,

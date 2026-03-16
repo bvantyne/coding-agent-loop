@@ -162,7 +162,10 @@ it.layer(NodeServices.layer)("keybindings", (it) => {
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const { keybindingsConfigPath } = yield* ServerConfig;
-      assert.isFalse(yield* fs.exists(keybindingsConfigPath));
+      const configExists = yield* fs
+        .exists(keybindingsConfigPath)
+        .pipe(Effect.catch(() => Effect.succeed(false)));
+      assert.isFalse(configExists);
 
       yield* Effect.gen(function* () {
         const keybindings = yield* Keybindings;
@@ -413,7 +416,10 @@ it.layer(NodeServices.layer)("keybindings", (it) => {
       }).pipe(toDetailResult);
       assertFailure(result, "failed to write keybindings config");
 
-      assert.isFalse(yield* fs.exists(keybindingsConfigPath));
+      const configExists = yield* fs
+        .exists(keybindingsConfigPath)
+        .pipe(Effect.catch(() => Effect.succeed(false)));
+      assert.isFalse(configExists);
     }).pipe(Effect.provide(makeKeybindingsLayer({ failWrites: true }))),
   );
 

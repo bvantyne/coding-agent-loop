@@ -1,4 +1,4 @@
-import { assert, beforeEach, describe, it, vi } from "vitest";
+import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 const FILE_COUNT = 25_002;
 const LARGE_WORKSPACE_FILES = Array.from(
@@ -66,5 +66,22 @@ describe("CodeChunkerLive large workspace scans", () => {
     assert.equal(chunks[0]?.filePath, LARGE_WORKSPACE_FILES[0]);
     assert.equal(chunks.at(-1)?.filePath, LARGE_WORKSPACE_FILES.at(-1));
     assert.equal(chunkTypeScriptFileMock.mock.calls.length, FILE_COUNT);
+  });
+
+  it("surfaces truncated workspace scans as chunkWorkspace failures", async () => {
+    listWorkspaceFilesMock.mockRejectedValueOnce(
+      new Error("Workspace file scan was truncated for '/virtual/workspace'"),
+    );
+
+    const { Effect } = await import("effect");
+    const { CodeChunkerLive } = await import("./CodeChunker.ts");
+    const { CodeChunker } = await import("../Services/CodeChunker.ts");
+
+    const result = Effect.gen(function* () {
+      const chunker = yield* CodeChunker;
+      return yield* chunker.chunkWorkspace({ cwd: "/virtual/workspace" });
+    }).pipe(Effect.provide(CodeChunkerLive), Effect.runPromise);
+
+    await expect(result).rejects.toThrow("Workspace file scan was truncated");
   });
 });
